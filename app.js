@@ -7,6 +7,8 @@ var bodyParser = require('body-parser');
 
 const http = require( "http" );
 const request = require('request');
+var bunyan = require('bunyan');
+var log = bunyan.createLogger({name: 'egghead-download'});
 
 var app = express();
 
@@ -29,16 +31,19 @@ app.get('/',function (req, res, next) {
 });
 
 app.post('/download', function (req, res, next) {
+    log.info('start to download!')
     let lessonList = JSON.parse(req.body.list);
-    lessonList.map( list => {
+    lessonList.slice(0,1).map( list => {
+      log.info('10 seconds bengin get url.');
       setTimeout(() => {
+
           checkUrl( list )
       }, 10000); 
     } )
-    console.log(lessonList);
 });
 
 function checkUrl(list) {
+  log.info('begin get download link.')
   request.post( {
         url: 'http://www.clipconverter.cc/check.php',
         headers: {
@@ -48,6 +53,7 @@ function checkUrl(list) {
           mediaurl: list.mediaurl
         }
       }, ( err, httpResponse, body ) => {
+        log.info(JSON.parse( body ));
         const data = JSON.parse( body );
         if ( data && data.url ) {
           let item = data.url[ 0 ];
@@ -66,6 +72,7 @@ function getHttpReqCallback ( dirName, fileName ) {
       fileBuff.push( buffer );
     } );
     res.on( 'end', function () {
+      log.info(`finish download${fileName}`)
       var totalBuff = Buffer.concat( fileBuff );
       fs.appendFile( dirName + "/" + fileName, totalBuff, function ( err ) {} );
     } );
@@ -74,6 +81,7 @@ function getHttpReqCallback ( dirName, fileName ) {
 }
 
 function startDownloadTask ( src, dirName, fileName ) {
+  log.info(`start download ${fileName}`);
   var req = http.request( src, getHttpReqCallback( dirName, fileName ) );
   req.on( 'error', function ( e ) {} );
   req.end();
@@ -86,11 +94,10 @@ app.post('/getVideos',function (req, res, next) {
     url = url.split('?')[0];
     url = url.slice( url.lastIndexOf('/') + 1);
     url = `https://egghead.io/api/v1/lessons/${url}/next_up`
-    console.log('begin request!', url);
+    log.info('begin request! %s', url);
     request.get( {
         url: url,
       }, ( err, httpResponse, body ) => {
-        console.log('had return!');
         const data = JSON.parse( body );
         let list = data.list
         if ( list ) {
@@ -105,11 +112,7 @@ app.post('/getVideos',function (req, res, next) {
             return p;
           }, [] );
           
-          
-          lessons.map( lesson => {
-            items = items + lesson.lesson_http_url + "<br/>"//拼接HTML
-          })  
-          console.log(items);
+          log.info(JSON.stringify(mediaurlList));
           res.send(JSON.stringify(mediaurlList));
         }
       } );
