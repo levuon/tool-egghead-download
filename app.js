@@ -77,9 +77,7 @@ function checkUrl(list) {
       }
     });
   });
-
 }
-
 
 app.post('/test', function (req, res, next) {
   var url = `http://embed.wistia.com/deliveries/e37c85a2976b62b2d9660b3ad3c20da0e022b77e.bin#type=mp4#size=7814168#hd`;
@@ -88,6 +86,7 @@ app.post('/test', function (req, res, next) {
     else console.log(`\r\n已保存到：${ filename }`);
   });
 })
+
 //处理请求
 app.post('/getVideos', function (req, res, next) {
   let url = req.body.url,
