@@ -15,6 +15,7 @@
         <input type="text" class="form-control" id="tv_link" placeholder="请输入egghead链接"></br>
         <button type="button" class="btn btn-primary" onclick="getData()">点击查询</button>
         <button type="button" class="btn btn-primary" onclick="downData()">下载</button>
+        <button type="button" class="btn btn-primary" onclick="test()">test</button>
 
         <div class="jumbotron" id="main" style="margin-top: 20px">
         </div>
@@ -34,6 +35,11 @@
     function downData() {
         var listVal = $('#main')[0].innerHTML; //获取
         $.post("/download", {list: listVal}, function(result){
+            alert('download success!')
+        });
+    }
+    function test() {
+        $.post("/test", function(result){
             alert('download success!')
         });
     }
