@@ -1,0 +1,16 @@
+{
+  "name": "egghead",
+  "script": "bin/www",
+  "exec_mode": "cluster",
+  "instances": 1,
+  "max_memory_restart": "500M",
+  "merge_logs": true,
+  "out_file": "~/.pm2/logs/egghead/egghead-out.log",
+  "error_file": "~/.pm2/logs/egghead/egghead-err.log",
+  "log_date_format": "YYYY-MM-DD HH:mm Z",
+  "env": {
+    "NODE_ENV": "development",
+    "ENV": "dev_egghead",
+    "PORT": "3722"
+  }
+}
