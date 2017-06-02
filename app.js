@@ -46,9 +46,7 @@ app.post('/download', function (req, res, next) {
   log.info('start to download!')
   let lessonList = JSON.parse(req.body.list);
   var lessonPormise = utils.listPromise(lessonList);
-  lessonPormise(checkUrl);
-  
-  res.send('done');
+  lessonPormise(checkUrl).then( () =>  res.send('done'));
 });
 
 function checkUrl(list) {
