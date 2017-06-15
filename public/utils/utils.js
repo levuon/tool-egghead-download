@@ -4,6 +4,7 @@
 const os = require('os');
 const path = require('path');
 const createDebug = require('debug');
+const request = require('request');
 const R = require('ramda');
 const Task = require('data.task');
 const DEBUG_PREFIX = 'lei-download:';
@@ -57,5 +58,23 @@ exports.trace = R.curry(function(tag, arg){
   return arg;
 })
 
-exports.listPromise = list => promiseFn =>
- list.reduce((prev, cur) => prev.then(() => promiseFn(cur) ) ,Promise.resolve()); 
+exports.requestGetFp = function (url) {
+  return new Task(function (reject, resolve) {
+    log.info('start request!')
+    request.get({
+      url: url
+    }, (err, httpResponse, body) => {
+      err ? reject(err) : resolve(JSON.parse(body));
+    })
+  })
+};
+
+exports.requestPostFn = function (url, headers, form) {
+  return new Task(function (reject, resolve) {
+    request.post({ url, headers, form }, (err, httpResponse, body) => {
+      err ? reject(err) : resolve(JSON.parse(body));
+    })
+  })
+} 
+// append 追加
+export const append = R.flip(R.concat);

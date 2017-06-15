@@ -25,8 +25,7 @@ const Task = require('data.task');
 const ProgressBar = require('./public/utils/progressBar')
 const startDownloadTask = require('./public/utils/old-download')
 const download = require('./public/utils/new-download')
-const storeUrl = require('./public/utils/storeUrl')
-const utils = require('./public/utils/utils')
+const { trace, append, requestGetFp, requestPostFn } = require('./public/utils/utils')
 
 
 // view engine setup
@@ -34,7 +33,7 @@ app.set('views', path.join(__dirname, 'views'));
 app.engine('.html', require('ejs').__express);
 app.set('view engine', 'html');
 
-// uncomment after placing your favicon in /public
+
 //app.use(favicon(path.join(__dirname, 'public', 'favicon.ico')));
 app.use(logger('dev'));
 app.use(bodyParser.json());
@@ -57,33 +56,30 @@ const taskDownload = R.curry((index, url) => {
     download(url, './download', `${lessonList[index].name}.mp4`, function (err, filename) {
       if (err) console.log(`出错：${ err }`);
       else {
-        log.info(`\r\n下载完毕, 已保存到: ./download/${ filename }`)
+        log.info(`下载完毕, 已保存到: ./download/${ filename }`)
         resolve()
       }
     });
-    // setTimeout(function () {
-    //   console.log('downtest', url);
-    //   resolve()
-    // }, 10000);
   })
 })
 
 
-// let dir = process.cwd();
-let filesDir = path.resolve( __dirname, './download' );
-let files = fs.readdirSync( filesDir );
+const dirFile = (() => {
+  let filesDir = path.resolve( __dirname, './download' );
+  return fs.readdirSync( filesDir );
+})();
 
 
-const checkEqFileName = (fileName) => files.indexOf(`${fileName}.mp4`) < 0;
+const checkEqFileName = R.curry( (files, fileName) => files.indexOf(`${fileName}.mp4`) < 0);
 
 app.post('/download', function (req, res, next) {
   log.info('start to download!')
   lessonList = JSON.parse(req.body.list);
-  
+
   // 检查download 是否已经下载过
   let filterFile = R.compose(
     R.filter( 
-      R.compose( checkEqFileName,  R.prop('name') ) ) 
+      R.compose( checkEqFileName(dirFile),  R.prop('name') ) ) 
   );
   lessonList = filterFile(lessonList);
   let totalLength = (lessonList.length * 2)/10, composeList = [], i = 0;
@@ -94,6 +90,7 @@ app.post('/download', function (req, res, next) {
     return prev;
   }, []);
 
+  // R.compose 最多接受10个参数，故超过10个使用apply
   while(i < totalLength){
     composeList.push(R.compose.apply(R, wrapList.slice(i * 10, (i + 1) * 10)));
     i++;
@@ -110,6 +107,7 @@ app.post('/download', function (req, res, next) {
 
 // serial download 串行下载
 const checkUrl = R.curry(function (index, list) {
+  log.info('start to get download url');
   return new Task(function (reject, resolve) {
     let url = `http://www.clipconverter.cc/check.php`,
       header = {
@@ -123,6 +121,7 @@ const checkUrl = R.curry(function (index, list) {
       .fork(
         err => reject(err.message),
         item => {
+          log.info(item.url, 'checkUrl#get url');
           return resolve(item.url);
         }
       )
@@ -160,8 +159,6 @@ app.post('/getVideos', function (req, res, next) {
     );
 });
 
-// append 追加
-const append = R.flip(R.concat);
 
 // https://egghead.io/lessons/javascript-create-and-run-a-native-webassembly-function
 // javascript-create-and-run-a-native-webassembly-function
@@ -174,31 +171,7 @@ const getEggheadUrlLessons = R.compose(
   R.split('?')
 );
 
-const requestGetFp = function (url) {
-  return new Task(function (reject, resolve) {
-    log.info('start request!')
-    request.get({
-      url: url
-    }, (err, httpResponse, body) => {
-      err ? reject(err) : resolve(JSON.parse(body));
-    })
-  })
-};
-
-const requestPostFn = function (url, headers, form) {
-  return new Task(function (reject, resolve) {
-    // setTimeout(function () {
-    //   resolve({
-    //     url: 'http://www.baidu.com' 
-    //   })
-    // }, 4000);
-    request.post({ url, headers, form }, (err, httpResponse, body) => {
-      err ? reject(err) : resolve(JSON.parse(body));
-    })
-  })
-}
-
-// 组装data
+// assemble data
 const assembleData = function (list) {
   return list.filter(Boolean).reduce((p, n, index) => {
     let temp = {},
