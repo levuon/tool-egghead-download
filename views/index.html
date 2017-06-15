@@ -34,12 +34,12 @@
     function downData() {
         var listVal = $('#main')[0].innerHTML; //获取
         $.post("/download", {list: listVal}, function(result){
-            alert('download success!')
+             $("#main").html(result);
         });
     }
     function test() {
         $.post("/test", function(result){
-            alert('download success!')
+            $("#main").html(result);
         });
     }
 </script>

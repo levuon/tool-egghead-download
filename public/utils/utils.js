@@ -77,4 +77,4 @@ exports.requestPostFn = function (url, headers, form) {
   })
 } 
 // append 追加
-export const append = R.flip(R.concat);
+exports.append = R.flip(R.concat);
