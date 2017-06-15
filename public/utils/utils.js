@@ -4,7 +4,8 @@
 const os = require('os');
 const path = require('path');
 const createDebug = require('debug');
-
+const R = require('ramda');
+const Task = require('data.task');
 const DEBUG_PREFIX = 'lei-download:';
 const utilsDebug = createDebug(DEBUG_PREFIX + 'utils');
 
@@ -51,4 +52,10 @@ exports.isURL = function isURL(url) {
   return false;
 };
 
-exports.listPromise = list => promiseFn => list.reduce((prev, cur) => prev.then(() => promiseFn(cur) ) ,Promise.resolve()); 
+exports.trace = R.curry(function(tag, arg){
+  console.log(tag, arg);
+  return arg;
+})
+
+exports.listPromise = list => promiseFn =>
+ list.reduce((prev, cur) => prev.then(() => promiseFn(cur) ) ,Promise.resolve()); 

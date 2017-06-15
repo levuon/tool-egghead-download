@@ -1,5 +1,6 @@
 var express = require('express');
 var path = require('path');
+var fs = require('fs');
 var favicon = require('serve-favicon');
 var logger = require('morgan');
 var cookieParser = require('cookie-parser');
@@ -13,6 +14,14 @@ var bunyan = require('bunyan');
 var log = bunyan.createLogger({
   name: 'egghead-download'
 });
+
+const R = require('ramda');
+var Either = require('ramda-fantasy').Either;
+var Left = Either.Left;
+var Right = Either.Right;
+const Task = require('data.task');
+
+
 const ProgressBar = require('./public/utils/progressBar')
 const startDownloadTask = require('./public/utils/old-download')
 const download = require('./public/utils/new-download')
@@ -42,40 +51,83 @@ app.get('/', function (req, res, next) {
   });
 });
 
-app.post('/download', function (req, res, next) {
-  log.info('start to download!')
-  let lessonList = JSON.parse(req.body.list);
-  var lessonPormise = utils.listPromise(lessonList.slice(7));
-  lessonPormise(checkUrl).then( () =>  res.send('done'));
-});
 
-function checkUrl(list) {
-  return new Promise((resolve, reject) => {
-    request.post({
-      url: 'http://www.clipconverter.cc/check.php',
-      headers: {
-        "Content-Type": 'application/x-www-form-urlencoded'
-      },
-      form: {
-        mediaurl: list.mediaurl
-      }
-    }, (err, httpResponse, body) => {
-      log.info(`start to download ${list.name}`);
-      const data = JSON.parse(body);
-      if (data && data.url) {
-        let item = data.url[0];
-        // startDownloadTask( item.url, './', list.name );
-        download(item.url, './download', `${list.name}.mp4`, function (err, filename) {
-          if (err) console.log(`出错：${ err }`);
-          else {
-            console.log(`\r\n下载完毕, 已保存到: ./download/${ filename }`);
-            resolve()
-          }
-        });
+const taskDownload = R.curry((index, url) => {
+  return new Task(function (reject, resolve) {
+    download(url, './download', `${lessonList[index].name}.mp4`, function (err, filename) {
+      if (err) console.log(`出错：${ err }`);
+      else {
+        log.info(`\r\n下载完毕, 已保存到: ./download/${ filename }`)
+        resolve()
       }
     });
-  });
-}
+    // setTimeout(function () {
+    //   console.log('downtest', url);
+    //   resolve()
+    // }, 10000);
+  })
+})
+
+
+// let dir = process.cwd();
+let filesDir = path.resolve( __dirname, './download' );
+let files = fs.readdirSync( filesDir );
+
+
+const checkEqFileName = (fileName) => files.indexOf(`${fileName}.mp4`) < 0;
+
+app.post('/download', function (req, res, next) {
+  log.info('start to download!')
+  lessonList = JSON.parse(req.body.list);
+  
+  // 检查download 是否已经下载过
+  let filterFile = R.compose(
+    R.filter( 
+      R.compose( checkEqFileName,  R.prop('name') ) ) 
+  );
+  lessonList = filterFile(lessonList);
+  let totalLength = (lessonList.length * 2)/10, composeList = [], i = 0;
+
+  let wrapList = lessonList.reduce((prev,next, index) => {
+    prev.unshift( index === 0 ? checkUrl(index) : R.chain(checkUrl(index)));
+    prev.unshift( R.chain(taskDownload(index)));
+    return prev;
+  }, []);
+
+  while(i < totalLength){
+    composeList.push(R.compose.apply(R, wrapList.slice(i * 10, (i + 1) * 10)));
+    i++;
+  }
+
+  var allDownloadTask = R.compose.apply(R, composeList);
+
+  allDownloadTask(lessonList).fork(
+    err => log.error('err', err.message),
+    data => res.send('done')
+  )
+});
+
+
+// serial download 串行下载
+const checkUrl = R.curry(function (index, list) {
+  return new Task(function (reject, resolve) {
+    let url = `http://www.clipconverter.cc/check.php`,
+      header = {
+        "Content-Type": 'application/x-www-form-urlencoded'
+      },
+      form = {
+        mediaurl: lessonList[index].mediaurl
+      };
+    requestPostFn(url, header, form)
+      .map(R.compose(R.head, R.prop('url')))
+      .fork(
+        err => reject(err.message),
+        item => {
+          return resolve(item.url);
+        }
+      )
+  })
+})
 
 app.post('/test', function (req, res, next) {
   var url = `http://embed.wistia.com/deliveries/e37c85a2976b62b2d9660b3ad3c20da0e022b77e.bin#type=mp4#size=7814168#hd`;
@@ -85,38 +137,79 @@ app.post('/test', function (req, res, next) {
   });
 })
 
+const checkProps = R.curry(function (prop, obj) {
+  return !!obj.prop ? Right(obj.prop) : Left(`can not get object ${obj.getName()} property ${prop}`)
+})
+
+const logError = err => console.log('Error: ' + error.message);
+const logSuccess = data => console.log('data' + data);
+
+// const eitherLogOrDone = Either.either(logError, logSuccess);
+
 //处理请求
 app.post('/getVideos', function (req, res, next) {
-  let url = req.body.url,
+  let url = getEggheadUrlLessons(req.body.url),
     mediaurlList = [];
-  // post api
-  url = url.split('?')[0];
-  url = url.slice(url.lastIndexOf('/') + 1);
-  url = `https://egghead.io/api/v1/lessons/${url}/next_up`
   log.info('begin request! %s', url);
-  request.get({
-    url: url,
-  }, (err, httpResponse, body) => {
-    const data = JSON.parse(body);
-    let list = data.list
-    if (list) {
-      let lessons = list.lessons;
-      let items = "";
 
-      mediaurlList = lessons.filter(Boolean).reduce((p, n, index) => {
-        let temp = {},
-          url = n.lesson_http_url;
-        temp.mediaurl = url;
-        temp.name = `egghead-${index + 1}-${url.slice( url.lastIndexOf( '/' ) + 1 )}`;
-        p.push(temp);
-        return p;
-      }, []);
-
-      log.info(JSON.stringify(mediaurlList));
-      res.send(JSON.stringify(mediaurlList));
-    }
-  });
+  requestGetFp(url)
+    .map(R.compose(assembleData, R.prop('lessons'), R.prop('list')))
+    .fork(
+      err => res.send(JSON.stringify(err)),
+      data => (log.info('lessons: ', data), res.send(JSON.stringify(data)))
+    );
 });
+
+// append 追加
+const append = R.flip(R.concat);
+
+// https://egghead.io/lessons/javascript-create-and-run-a-native-webassembly-function
+// javascript-create-and-run-a-native-webassembly-function
+const getEggheadUrlLessons = R.compose(
+  append('/next_up'),
+  R.concat('https://egghead.io/api/v1/lessons/'),
+  R.last,
+  R.split('/'),
+  R.head,
+  R.split('?')
+);
+
+const requestGetFp = function (url) {
+  return new Task(function (reject, resolve) {
+    log.info('start request!')
+    request.get({
+      url: url
+    }, (err, httpResponse, body) => {
+      err ? reject(err) : resolve(JSON.parse(body));
+    })
+  })
+};
+
+const requestPostFn = function (url, headers, form) {
+  return new Task(function (reject, resolve) {
+    // setTimeout(function () {
+    //   resolve({
+    //     url: 'http://www.baidu.com' 
+    //   })
+    // }, 4000);
+    request.post({ url, headers, form }, (err, httpResponse, body) => {
+      err ? reject(err) : resolve(JSON.parse(body));
+    })
+  })
+}
+
+// 组装data
+const assembleData = function (list) {
+  return list.filter(Boolean).reduce((p, n, index) => {
+    let temp = {},
+      url = n.lesson_http_url;
+    temp.mediaurl = url;
+    temp.name = `egghead-${index + 1}-${url.slice( url.lastIndexOf( '/' ) + 1 )}`;
+    p.push(temp);
+    return p;
+  }, []);
+}
+
 
 // catch 404 and forward to error handler
 app.use(function (req, res, next) {

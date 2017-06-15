@@ -3,13 +3,16 @@
 const fs = require('fs');
 const request = require('request');
 const utils = require('./utils');
+const R = require('ramda');
 const ProgressBar = require('./progressBar');
 var pb = new ProgressBar('下载进度', 50);
 var bunyan = require('bunyan');
 var log = bunyan.createLogger({name: 'egghead-download'});
 
 
-module.exports = function downloadFile(url, dirName, fileName, callback) {
+module.exports = downloadFile
+
+function downloadFile(url, dirName, fileName, callback) {
   callback = utils.callback(callback);
   const debug = utils.debug(`download: ${ url } => ${ dirName }`);
   debug('start');
