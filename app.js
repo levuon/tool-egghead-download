@@ -1,38 +1,43 @@
-var express = require('express');
-var path = require('path');
-var fs = require('fs');
-var favicon = require('serve-favicon');
-var logger = require('morgan');
-var cookieParser = require('cookie-parser');
-var bodyParser = require('body-parser');
-var app = express();
-
-
-
+const express = require('express');
+const path = require('path');
+const fs = require('fs');
+const favicon = require('serve-favicon');
+const logger = require('morgan');
+const cookieParser = require('cookie-parser');
+const bodyParser = require('body-parser');
+const app = express();
 const request = require('request');
-var bunyan = require('bunyan');
-var log = bunyan.createLogger({
-  name: 'egghead-download'
-});
+const bunyan = require('bunyan');
 
+// fp
 const R = require('ramda');
-var Either = require('ramda-fantasy').Either;
-var Left = Either.Left;
-var Right = Either.Right;
+const Either = require('ramda-fantasy').Either;
+const Left = Either.Left;
+const Right = Either.Right;
 const Task = require('data.task');
 
-
-const ProgressBar = require('./public/utils/progressBar')
-const startDownloadTask = require('./public/utils/old-download')
-const download = require('./public/utils/new-download')
-const { trace, append, requestGetFp, requestPostFn } = require('./public/utils/utils')
-
+// internal
+const log = bunyan.createLogger({
+  name: 'egghead-download'
+});
+const ProgressBar = require('./public/utils/progressBar');
+const startDownloadTask = require('./public/utils/old-download');
+const download = require('./public/utils/new-download');
+const {
+  trace,
+  append,
+  requestGetFp,
+  requestPostFn
+} = require('./public/utils/utils');
+const {
+  MP4,
+  clipconverter
+} = require('./public/utils/constants');
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
 app.engine('.html', require('ejs').__express);
 app.set('view engine', 'html');
-
 
 //app.use(favicon(path.join(__dirname, 'public', 'favicon.ico')));
 app.use(logger('dev'));
@@ -51,12 +56,19 @@ app.get('/', function (req, res, next) {
 });
 
 
+// get fileName from download.
+const dirFile = (() => {
+  let filesDir = path.resolve(__dirname, './download');
+  return fs.readdirSync(filesDir);
+})();
+
 const taskDownload = R.curry((index, url) => {
   return new Task(function (reject, resolve) {
     download(url, './download', `${lessonList[index].name}.mp4`, function (err, filename) {
-      if (err) console.log(`出错：${ err }`);
+      if (err)
+        console.log(`出错：${err}`);
       else {
-        log.info(`下载完毕, 已保存到: ./download/${ filename }`)
+        log.info(`下载完毕, 已保存到: ./download/${filename}`)
         resolve()
       }
     });
@@ -64,52 +76,44 @@ const taskDownload = R.curry((index, url) => {
 })
 
 
-const dirFile = (() => {
-  let filesDir = path.resolve( __dirname, './download' );
-  return fs.readdirSync( filesDir );
-})();
 
-
-const checkEqFileName = R.curry( (files, fileName) => files.indexOf(`${fileName}.mp4`) < 0);
+const checkEqFileName = R.curry((files, fileName) => files.indexOf(`${fileName}.${MP4}`) < 0);
 
 app.post('/download', function (req, res, next) {
   log.info('start to download!')
   lessonList = JSON.parse(req.body.list);
 
   // 检查download 是否已经下载过
-  let filterFile = R.compose(
-    R.filter( 
-      R.compose( checkEqFileName(dirFile),  R.prop('name') ) ) 
-  );
+  let filterFile = R.compose(R.filter(R.compose(checkEqFileName(dirFile), R.prop('name'))));
   lessonList = filterFile(lessonList);
-  let totalLength = (lessonList.length * 2)/10, composeList = [], i = 0;
+  let totalLength = (lessonList.length * 2) / 10,
+    composeList = [],
+    i = 0;
 
-  let wrapList = lessonList.reduce((prev,next, index) => {
-    prev.unshift( index === 0 ? checkUrl(index) : R.chain(checkUrl(index)));
-    prev.unshift( R.chain(taskDownload(index)));
+  let wrapList = lessonList.reduce((prev, next, index) => {
+    prev.unshift(index === 0 ?
+      checkUrl(index) :
+      R.chain(checkUrl(index)));
+    prev.unshift(R.chain(taskDownload(index)));
     return prev;
   }, []);
 
   // R.compose 最多接受10个参数，故超过10个使用apply
-  while(i < totalLength){
+  while (i < totalLength) {
     composeList.push(R.compose.apply(R, wrapList.slice(i * 10, (i + 1) * 10)));
     i++;
   }
 
-  var allDownloadTask = R.compose.apply(R, composeList);
+  const allDownloadTask = R.compose.apply(R, composeList);
 
-  allDownloadTask(lessonList).fork(
-    err => log.error('err', err.message),
-    data => res.send('done')
-  )
+  allDownloadTask(lessonList).fork(err => log.error('err', err.message), data => res.send('done'))
 });
-
 
 // serial download 串行下载
 const checkUrl = R.curry(function (index, list) {
   log.info('start to get download url');
   return new Task(function (reject, resolve) {
-    let url = `http://www.clipconverter.cc/check.php`,
+    let url = clipconverter,
       header = {
         "Content-Type": 'application/x-www-form-urlencoded'
       },
@@ -131,13 +135,17 @@ const checkUrl = R.curry(function (index, list) {
 app.post('/test', function (req, res, next) {
   var url = `http://embed.wistia.com/deliveries/e37c85a2976b62b2d9660b3ad3c20da0e022b77e.bin#type=mp4#size=7814168#hd`;
   download(url, './', 'text', function (err, filename) {
-    if (err) console.log(`出错：${ err }`);
-    else console.log(`\r\n已保存到：${ filename }`);
+    if (err)
+      console.log(`出错：${err}`);
+    else
+      console.log(`\r\n已保存到：${filename}`);
   });
 })
 
 const checkProps = R.curry(function (prop, obj) {
-  return !!obj.prop ? Right(obj.prop) : Left(`can not get object ${obj.getName()} property ${prop}`)
+  return !!obj.prop ?
+    Right(obj.prop) :
+    Left(`can not get object ${obj.getName()} property ${prop}`)
 })
 
 const logError = err => console.log('Error: ' + error.message);
@@ -151,25 +159,12 @@ app.post('/getVideos', function (req, res, next) {
     mediaurlList = [];
   log.info('begin request! %s', url);
 
-  requestGetFp(url)
-    .map(R.compose(assembleData, R.prop('lessons'), R.prop('list')))
-    .fork(
-      err => res.send(JSON.stringify(err)),
-      data => (log.info('lessons: ', data), res.send(JSON.stringify(data)))
-    );
+  requestGetFp(url).map(R.compose(assembleData, R.prop('lessons'), R.prop('list'))).fork(err => res.send(JSON.stringify(err)), data => (log.info('lessons: ', data), res.send(JSON.stringify(data))));
 });
-
 
 // https://egghead.io/lessons/javascript-create-and-run-a-native-webassembly-function
 // javascript-create-and-run-a-native-webassembly-function
-const getEggheadUrlLessons = R.compose(
-  append('/next_up'),
-  R.concat('https://egghead.io/api/v1/lessons/'),
-  R.last,
-  R.split('/'),
-  R.head,
-  R.split('?')
-);
+const getEggheadUrlLessons = R.compose(append('/next_up'), R.concat('https://egghead.io/api/v1/lessons/'), R.last, R.split('/'), R.head, R.split('?'));
 
 // assemble data
 const assembleData = function (list) {
@@ -177,12 +172,11 @@ const assembleData = function (list) {
     let temp = {},
       url = n.lesson_http_url;
     temp.mediaurl = url;
-    temp.name = `egghead-${index + 1}-${url.slice( url.lastIndexOf( '/' ) + 1 )}`;
+    temp.name = `egghead-${index + 1}-${url.slice(url.lastIndexOf('/') + 1)}`;
     p.push(temp);
     return p;
   }, []);
 }
-
 
 // catch 404 and forward to error handler
 app.use(function (req, res, next) {
@@ -214,6 +208,5 @@ app.use(function (err, req, res, next) {
     error: {}
   });
 });
-
 
 module.exports = app;
