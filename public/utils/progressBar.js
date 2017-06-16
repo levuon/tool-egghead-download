@@ -1,7 +1,8 @@
-// 这里用到一个很实用的 npm 模块，用以在同一行打印文本
-var slog = require('single-line-log').stdout;
+//在同一行打印文本
+const slog = require('single-line-log').stdout;
+const R = require('ramda');
 
-// 封装的 ProgressBar 工具
+
 function ProgressBar(description, bar_length){
   // 两个基本参数(属性)
   this.description = description || 'Progress';       // 命令行开头的文字信息
@@ -35,7 +36,7 @@ function ProgressBar(description, bar_length){
 }
 
 // 模块导出
-module.exports = ProgressBar;
+module.exports = R.curry(ProgressBar);
 
 
 
