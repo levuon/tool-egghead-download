@@ -5,6 +5,8 @@
     <title>egghead</title>
     <script src="//cdn.bootcss.com/jquery/3.1.1/jquery.min.js"></script>
     <link href="//cdn.bootcss.com/bootstrap/4.0.0-alpha.5/css/bootstrap.min.css" rel="stylesheet">
+    <!-- <script src="../node_modules/jquery/dist/jquery.min.js"></script> -->
+    <!-- <link href="../node_modules/bootstrap/dist/css/bootstrap.min.css" rel="stylesheet"> -->
 </head>
 <body>
 
@@ -15,6 +17,7 @@
         <input type="text" class="form-control" id="tv_link" placeholder="请输入egghead链接"></br>
         <button type="button" class="btn btn-primary" onclick="getData()">点击查询</button>
         <button type="button" class="btn btn-primary" onclick="downData()">下载</button>
+        <button type="button" class="btn btn-primary" onclick="downYoutube()">Youtube download</button>
         <button type="button" class="btn btn-primary" onclick="test()">test</button>
         <div class="jumbotron" id="main" style="margin-top: 20px">
         </div>
@@ -34,6 +37,12 @@
     function downData() {
         var listVal = $('#main')[0].innerHTML; //获取
         $.post("/download", {list: listVal}, function(result){
+             $("#main").html(result);
+        });
+    }
+    function downYoutube() {
+        var url = $("#tv_link").val(); //获取
+        $.post("/youtube", {url: url}, function(result){
              $("#main").html(result);
         });
     }

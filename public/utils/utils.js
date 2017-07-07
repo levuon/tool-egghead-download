@@ -60,7 +60,7 @@ exports.trace = R.curry(function(tag, arg){
 
 exports.requestGetFp = function (url) {
   return new Task(function (reject, resolve) {
-    log.info('start request!')
+   console.log('start request!')
     request.get({
       url: url
     }, (err, httpResponse, body) => {
@@ -72,9 +72,10 @@ exports.requestGetFp = function (url) {
 exports.requestPostFn = function (url, headers, form) {
   return new Task(function (reject, resolve) {
     request.post({ url, headers, form }, (err, httpResponse, body) => {
-      err ? reject(err) : resolve(JSON.parse(body));
+      let pBody = JSON.parse(body);
+      err ? reject(err) : !!pBody.list ? resolve(pBody) : reject(new Error(pBody.err));
     })
   })
-} 
+}
 // append 追加
 exports.append = R.flip(R.concat);

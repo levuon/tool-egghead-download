@@ -7,7 +7,7 @@ const R = require('ramda');
 const { Either } = require('ramda-fantasy');
 const { Left, Right } = Either;
 const ProgressBar = require('./progressBar');
-var pb = new ProgressBar('下载进度', 50);
+var pb = new ProgressBar('download progress: ', 50);
 var bunyan = require('bunyan');
 var log = bunyan.createLogger({name: 'egghead-download'});
 
@@ -17,7 +17,7 @@ var log = bunyan.createLogger({name: 'egghead-download'});
 //   return Either.either(errAction, successAction)
 // });
 
-// // check response status 
+// // check response status
 // const compareStatus = R.curry(function(code, res){
 //   return code !== res.statusCode ? Left(new Error('status #' + res.statusCode)) : Right(res)
 // })
@@ -27,7 +27,7 @@ var log = bunyan.createLogger({name: 'egghead-download'});
 // });
 
 // const onData = R.curry(function(res){
-  
+
 // });
 
 // const onEnd = function(res){
@@ -85,7 +85,7 @@ function downloadFile(url, dirName, fileName, callback) {
         var buffer = new Buffer( data );
         fileBuff.push( buffer );
         pb.render({
-          completed: downloadSize, 
+          completed: downloadSize,
           total: totalSize,
           name: fileName
         });
@@ -95,6 +95,6 @@ function downloadFile(url, dirName, fileName, callback) {
           fs.appendFile( dirName + "/" + fileName, totalBuff, function ( err ) {
           } );
           callback(null, fileName);
-       } );  
+       } );
     })
 };

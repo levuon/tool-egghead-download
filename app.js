@@ -132,6 +132,10 @@ const checkUrl = R.curry(function (index, list) {
   })
 })
 
+app.post('/youtube', function (req, res, next) {
+
+});
+
 app.post('/test', function (req, res, next) {
   var url = `http://embed.wistia.com/deliveries/e37c85a2976b62b2d9660b3ad3c20da0e022b77e.bin#type=mp4#size=7814168#hd`;
   download(url, './', 'text', function (err, filename) {
@@ -157,9 +161,12 @@ const logSuccess = data => console.log('data' + data);
 app.post('/getVideos', function (req, res, next) {
   let url = getEggheadUrlLessons(req.body.url),
     mediaurlList = [];
+  console.log(url);
   log.info('begin request! %s', url);
 
-  requestGetFp(url).map(R.compose(assembleData, R.prop('lessons'), R.prop('list'))).fork(err => res.send(JSON.stringify(err)), data => (log.info('lessons: ', data), res.send(JSON.stringify(data))));
+  requestGetFp(url)
+    .map(R.compose(assembleData, R.prop('lessons'), R.prop('list')))
+    .fork(err => res.send(JSON.stringify(err)), data => (log.info('lessons: ', data), res.send(JSON.stringify(data))));
 });
 
 // https://egghead.io/lessons/javascript-create-and-run-a-native-webassembly-function
