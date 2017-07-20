@@ -79,6 +79,10 @@ const taskDownload = R.curry((index, url) => {
 
 const checkEqFileName = R.curry((files, fileName) => files.indexOf(`${fileName}.${MP4}`) < 0);
 
+
+/**
+ * 失效了 egghead 视频改为mu38 格式 Deprecated
+ */
 app.post('/download', function (req, res, next) {
   log.info('start to download!')
   lessonList = JSON.parse(req.body.list);
@@ -130,11 +134,8 @@ const checkUrl = R.curry(function (index, list) {
         }
       )
   })
-})
-
-app.post('/youtube', function (req, res, next) {
-
 });
+
 
 app.post('/test', function (req, res, next) {
   var url = `http://embed.wistia.com/deliveries/e37c85a2976b62b2d9660b3ad3c20da0e022b77e.bin#type=mp4#size=7814168#hd`;
